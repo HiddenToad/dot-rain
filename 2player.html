@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>2 player mode -- Dot Rain</title>
+        <script src="//cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+        <style>
+            *{
+                font-family: 'Lucida Console';            
+            }
+
+            h1{
+                text-align: center;
+            }
+            
+            .center{
+                text-align: center;
+            }
+
+            a{
+                display: none !important;
+            }
+
+            button,p{
+                font-size: 20;
+            }
+
+            .button {
+                border: 2px solid black;
+                color: black;
+                background-color: cyan;
+                padding: 15px 32px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+            }
+
+            .button:hover{
+                border-color: yellow !important;
+            }
+
+
+        </style>
+    </head>
+    
+    <body>
+        <script>
+
+            gameState = {};
+            config = {
+                type: Phaser.AUTO,
+                width: window.innerWidth,
+                height: window.innerHeight - 75,
+                backgroundColor: 0xFFFFFF,
+                parent: 'phaser-game',
+
+                scene: {
+                    preload,
+                    create,
+                    update
+                },
+
+                physics: {
+                    default: 'arcade',
+                    arcade: {
+                        gravity: { y: 310 },
+                        debug: false
+                    }
+                }
+            };
+            let game = new Phaser.Game(config);
+            gameState.killedPlayers = 0;
+
+            function getCookie(cname) {
+                let name = cname + "=";
+                let decodedCookie = decodeURIComponent(document.cookie);
+                let ca = decodedCookie.split(';');
+                for(let i = 0; i <ca.length; i++) {
+                        let c = ca[i];
+                        while (c.charAt(0) == ' ') {
+                        c = c.substring(1);
+                        }
+                        if (c.indexOf(name) == 0) {
+                        return c.substring(name.length, c.length);
+                        }
+                    }
+                    return "";
+            }
+
+            function setCookie(cname, cvalue, exdays) {
+                const d = new Date();
+                d.setTime(d.getTime() + (exdays*24*60*60*1000));
+                let expires = "expires="+ d.toUTCString();
+                document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+            }
+
+            function randint(min, max){
+                return Math.random() * (max - min) + min;
+            }
+
+            function preload(){
+                this.load.image('projectile', 'projectile.png');
+                this.load.image('player1', 'player1.png');
+                this.load.image('player2', 'player2.png')
+            }
+
+            function create(){
+                gameState.player1 = this.physics.add.sprite(450, 450, 'player1');
+                gameState.player1.setScale(2);
+                gameState.player1.setGravityY(-310);
+                gameState.player1.setCollideWorldBounds(true);
+
+                gameState.player2 = this.physics.add.sprite(470, 450, 'player2');
+                gameState.player2.setScale(2);
+                gameState.player2.setGravityY(-310);
+                gameState.player2.setCollideWorldBounds(true);
+
+                //define keys
+                gameState.wKey = this.input.keyboard.addKey('W');
+                gameState.sKey = this.input.keyboard.addKey('S');
+                gameState.aKey = this.input.keyboard.addKey('A');
+                gameState.dKey = this.input.keyboard.addKey('D'); 
+                gameState.cursors = this.input.keyboard.createCursorKeys();
+
+                gameState.projectiles = this.physics.add.group();
+                gameState.borders = this.physics.add.group();
+                gameState.border = gameState.borders.create(window.innerWidth / 2, window.innerHeight - 75, 'player');
+                gameState.border.setScale(1000, .01);
+                gameState.border.setCollideWorldBounds(true);
+
+                this.physics.add.collider(gameState.projectiles, gameState.borders, function(single){
+                     single.destroy();
+
+                });
+
+
+                this.physics.add.collider(gameState.player1, gameState.projectiles, killp1);
+                this.physics.add.collider(gameState.player2, gameState.projectiles, killp2);
+
+
+            }
+
+            function killp1(){
+                gameState.player1.destroy();
+                gameState.killedPlayers++;
+            }
+            function killp2(){
+                gameState.player2.destroy();
+                gameState.killedPlayers++;
+            }
+
+            let delayCounter = 0;
+            let delayWait = 15000 / window.innerWidth;
+            let score = 0;
+            let gravity = 200;
+
+
+            function update(){
+                document.getElementById("score").innerHTML = "score: " + Math.floor(score/10);
+                //controls
+                if(gameState.wKey.isDown){
+                    gameState.player1.y -= 4;
+                }
+                else if(gameState.sKey.isDown){
+                    gameState.player1.y += 4;
+                }
+
+                if(gameState.aKey.isDown){
+                    gameState.player1.x -= 4;
+                }
+                else if(gameState.dKey.isDown){
+                    gameState.player1.x += 4;
+                }
+                
+                if(gameState.cursors.up.isDown){
+                    gameState.player2.y -= 4;
+                }
+                else if(gameState.cursors.down.isDown){
+                    gameState.player2.y += 4;
+                }
+
+                if(gameState.cursors.left.isDown){
+                    gameState.player2.x -= 4;
+                }
+                else if(gameState.cursors.right.isDown){
+                    gameState.player2.x += 4;
+                }
+
+
+                if(delayCounter < delayWait) delayCounter++;
+                else {
+                    gameState.projectiles.create(randint(1, window.innerWidth), 7, 'projectile');
+                    delayCounter = 0;
+                }
+                score++;
+                if(delayWait > .9){
+                    delayWait = (15000 / window.innerWidth) - (score / 200);
+                }
+                if(gameState.killedPlayers == 2){
+                    gameOver();
+                }
+
+
+                
+                
+            }
+
+            function gameOver(){
+                if(getCookie("score2") < Math.floor(score / 10) || getCookie("score2") == ""){
+                    setCookie("score2", Math.floor(score/10), 50);
+                }
+
+
+                document.getElementById("gameover").innerHTML = "GAME OVER. SCORE: " + Math.floor(score/10);
+                document.getElementById("highscore").innerHTML = "HIGH SCORE: " + getCookie("score2");
+
+                document.getElementById("phaser-game").innerHTML = "";
+                document.getElementById("gameovermenu").style = "";
+            }
+
+
+        </script>
+
+        <div id="phaser-game">
+            <p id="score"></p>
+        </div>
+        <h1 id="gameover"></h1>
+        <h1 id="highscore"></h1>
+        <br>
+        <br>
+        <div id="gameovermenu" class="center" style="display: none;">
+            <button class="button" onclick="location.reload()">play again</button>
+            <button class="button" onclick ="document.location='selection-screen.html'">main menu</button>
+        </div>
+        <audio src="game-bg-music.wav" loop autoplay></audio>
+
+    
+    </body>
+</html>
