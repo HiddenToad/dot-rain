@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>2 player mode -- Dot Rain</title>
+        <script src="//cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+        <style>
+            *{
+                font-family: 'Lucida Console';            
+            }
+
+            h1{
+                text-align: center;
+            }
+            
+            .center{
+                text-align: center;
+            }
+
+            a{
+                display: none !important;
+            }
+
+            button,p{
+                font-size: 20;
+            }
+
+            .button {
+                border: 2px solid black;
+                color: black;
+                background-color: cyan;
+                padding: 15px 32px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+            }
+
+            .button:hover{
+                border-color: yellow !important;
+            }
+
+
+        </style>
+    </head>
+    
+    <body>
+        <script>
+
+            gameState = {};
+            config = {
+                type: Phaser.AUTO,
+                width: window.innerWidth,
+                height: window.innerHeight - 5,
+                backgroundColor: 0xFFFFFF,
+                parent: 'phaser-game',
+
+                scene: {
+                    preload,
+                    create,
+                    update
+                },
+
+                physics: {
+                    default: 'arcade',
+                    arcade: {
+                        gravity: { y: 310 },
+                        debug: false
+                    }
+                }
+            };
+            let game = new Phaser.Game(config);
+            gameState.killedPlayers = 0;
+
+            function getCookie(cname) {
+                let name = cname + "=";
+                let decodedCookie = decodeURIComponent(document.cookie);
+                let ca = decodedCookie.split(';');
+                for(let i = 0; i <ca.length; i++) {
+                        let c = ca[i];
+                        while (c.charAt(0) == ' ') {
+                        c = c.substring(1);
+                        }
+                        if (c.indexOf(name) == 0) {
+                        return c.substring(name.length, c.length);
+                        }
+                    }
+                    return "";
+            }
+
+            function setCookie(cname, cvalue, exdays) {
+                const d = new Date();
+                d.setTime(d.getTime() + (exdays*24*60*60*1000));
+                let expires = "expires="+ d.toUTCString();
+                document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+            }
+
+            function randint(min, max){
+                return Math.floor(Math.random() * (max - min) + min);
+            }
+
+            function preload(){
+                this.load.image('projectile', 'projectile.png');
+                this.load.image('player1', 'player1.png');
+                this.load.image('player2', 'player2.png');
+                this.load.image('clockdown', 'clockdown.png');
+                this.load.image('dotdown', 'dotdown.png');
+                this.load.image('playerdown', 'playerdown.png');
+                this.load.image('speedup', 'speedup.png');
+                this.load.image('scoreup', 'scoreup.png');
+            }
+
+            function create(){
+                gameState.scoresIncreased = 0;
+                gameState.player1 = this.physics.add.sprite(450, 450, 'player1');
+                gameState.player1.setScale(2);
+                gameState.player1.setGravityY(-310);
+                gameState.player1.setCollideWorldBounds(true);
+
+                gameState.player2 = this.physics.add.sprite(470, 450, 'player2');
+                gameState.player2.setScale(2);
+                gameState.player2.setGravityY(-310);
+                gameState.player2.setCollideWorldBounds(true);
+
+                //define keys
+                gameState.wKey = this.input.keyboard.addKey('W');
+                gameState.sKey = this.input.keyboard.addKey('S');
+                gameState.aKey = this.input.keyboard.addKey('A');
+                gameState.dKey = this.input.keyboard.addKey('D'); 
+                gameState.cursors = this.input.keyboard.createCursorKeys();
+
+                gameState.projectiles = this.physics.add.group();
+                gameState.powerups = this.physics.add.group();
+                gameState.borders = this.physics.add.group();
+                gameState.border = gameState.borders.create(window.innerWidth / 2, game.canvas.height, 'player');
+                gameState.border.setScale(1000, .01);
+                gameState.border.setCollideWorldBounds(true);
+
+                this.physics.add.collider(gameState.projectiles, gameState.borders, function(single){
+                     single.destroy();
+
+                });
+
+                this.physics.add.collider(gameState.powerups, gameState.player1, function(player, single){
+                    randtime = randint(7000,13000);
+                    switch(single.texture.key){
+                        case 'clockdown': 
+                            clockdown(randtime, single);
+                            break;
+
+                        case 'dotdown':
+                            dotdown(randtime, single);
+                            break;
+                        
+                        case 'playerdown':
+                            playerdown(randtime, single, player);
+                            break;
+                        
+                        case 'speedup':                          
+                            speedup(randtime, single, player);
+                            break;
+                        case 'scoreup':
+                            single.destroy();
+                            gameState.scoresIncreased++;
+                            score += 200;
+
+                        }
+                    }); 
+
+                    this.physics.add.collider(gameState.powerups, gameState.player2, function(player, single){
+                    switch(single.texture.key){
+                        case 'clockdown': 
+                            clockdown(9000, single);
+                            break;
+
+                        case 'dotdown':
+                            dotdown(9000, single);
+                            break;
+                        
+                        case 'playerdown':
+                            playerdown(9000, single, player);
+                            break;
+                        
+                        case 'speedup':                          
+                            speedup(9000, single, player);
+                            break;
+                        case 'scoreup':
+                            single.destroy();
+                            gameState.scoresIncreased++;
+                            score += 200;
+
+                        }
+                    }); 
+
+
+                this.physics.add.collider(gameState.player1, gameState.projectiles, killp1);
+                this.physics.add.collider(gameState.player2, gameState.projectiles, killp2);
+
+
+            }
+            gameState.p1alive = true;
+            gameState.p2alive = true;
+
+            function killp1(){
+                gameState.player1.destroy();
+                gameState.p1alive = false;
+                gameState.killedPlayers++;
+            }
+            function killp2(){
+                gameState.player2.destroy();
+                gameState.p2alive = false;
+                gameState.killedPlayers++;
+            }
+
+            function clockdown(time, obj){
+                obj.destroy();
+                gameState.clockdown = true;
+                setTimeout(function () {
+                    gameState.clockdown = false;
+                }, time);
+            }
+
+            function dotdown(time, obj){
+                obj.destroy();
+                gameState.dotdown = true;
+                setTimeout(function () {
+                    gameState.dotdown = false;
+                }, time);
+            }
+
+            function playerdown(time, obj, player){
+                obj.destroy()
+                player.setScale(1);
+                setTimeout(function () {
+                    player.setScale(2);
+                }, time);
+            }
+
+            function speedup(time, obj, player){
+                obj.destroy();
+                if(player.texture.key == 'player1'){
+                    gameState.speed1 = true;
+                }
+                else{
+                    gameState.speed2 = true;
+                }
+                setTimeout(function(){
+                    gameState.speed1 = false;
+                    gameState.speed2 = false;
+                }, time);
+            }
+            gameState.powers = ['clockdown', 'dotdown', 'playerdown', 'speedup', 'scoreup'];
+
+            let delayCounter = 0;
+            let delayWait = 15000 / window.innerWidth;
+            let score1 = 0;
+            let score2 = 0;
+            let score = 0;
+            let gravity = 200;
+
+
+            function update(){
+                if(randint(1, 1000) == 1){
+                    gameState.randpow = gameState.powers[randint(0,5)];
+                    gameState.power = gameState.powerups.create(randint(15, window.innerWidth - 15), randint(20, window.innerHeight - 15), gameState.randpow);
+                    gameState.power.setGravityY(-310);
+                    if(gameState.randpow == 'clockdown' || gameState.randpow == 'speedup') gameState.power.setScale(.43);
+                    else gameState.power.setScale(.7);
+                }
+
+                document.getElementById("score1").innerHTML = "p1 score: " + Math.floor(score1/10);
+                document.getElementById("score2").innerHTML = "p2 score: " + Math.floor(score2/10);
+                document.getElementById("score").innerHTML = "team score: " + Math.floor(score/10);
+                //controls
+                if(gameState.wKey.isDown){
+                    gameState.player1.y -= 4;
+                    if(gameState.speed1) gameState.player1.y -= 2;
+                }
+                else if(gameState.sKey.isDown){
+                    gameState.player1.y += 4;
+                    if(gameState.speed1) gameState.player1.y += 2;
+                }
+
+                if(gameState.aKey.isDown){
+                    gameState.player1.x -= 4;
+                    if(gameState.speed1) gameState.player1.x -= 2;
+                }
+                else if(gameState.dKey.isDown){
+                    gameState.player1.x += 4;
+                    if(gameState.speed1) gameState.player1.x += 2;
+                }
+                
+                if(gameState.cursors.up.isDown){
+                    gameState.player2.y -= 4;
+                    if(gameState.speed2) gameState.player2.y -= 2;
+                }
+                else if(gameState.cursors.down.isDown){
+                    gameState.player2.y += 4;
+                    if(gameState.speed2) gameState.player2.y += 2;
+                }
+
+                if(gameState.cursors.left.isDown){
+                    gameState.player2.x -= 4;
+                    if(gameState.speed2) gameState.player2.x -= 4;
+                }
+                else if(gameState.cursors.right.isDown){
+                    gameState.player2.x += 4;
+                    if(gameState.speed2) gameState.player2.x += 4;
+                }
+
+
+                if(delayCounter < delayWait) delayCounter++;
+                else {
+                    gameState.projectile = gameState.projectiles.create(randint(1, window.innerWidth), 6, 'projectile');
+                    if(gameState.dotdown) gameState.projectile.setScale(.5);
+                    delayCounter = 0;
+                }
+                if(gameState.p1alive) score1++;
+                if(gameState.p2alive) score2++;
+                score = Math.floor((score1 + score2) / 2)
+                if(delayWait > .9){
+                    delayWait = (15000 / window.innerWidth) - (score / 200) + (gameState.scoresIncreased * 2);
+                }
+                if(gameState.killedPlayers == 2){
+                    gameOver();
+                }
+                if(gameState.clockdown) delayCounter -= .7;
+
+
+                
+                
+            }
+
+            function gameOver(){
+                if(getCookie("score2") < Math.floor(score / 10) || getCookie("score2") == ""){
+                    setCookie("score2", Math.floor(score/10), 50);
+                }
+
+
+                document.getElementById("gameover").innerHTML = "GAME OVER. SCORE: " + Math.floor(score/10);
+                document.getElementById("highscore").innerHTML = "HIGH SCORE: " + getCookie("score2");
+                document.getElementById("scores").innerHTML = "";
+                document.getElementById("phaser-game").innerHTML = "";
+                document.getElementById("gameovermenu").style = "";
+            }
+
+
+        </script>
+
+
+
+        <div id="phaser-game" style="top: 0%; left: 0%; position: absolute;">
+        </div>
+        <div id="scores" style="top: 0%; left: 1%; position: absolute;">
+            <p id="score1"></p>
+            <p id="score2"></p>
+            <p id="score"></p>
+        </div>
+        <h1 id="gameover"></h1>
+        <h1 id="highscore"></h1>
+        <br>
+        <br>
+        <div id="gameovermenu" class="center" style="display: none;">
+            <button class="button" onclick="location.reload()">play again</button>
+            <button class="button" onclick ="document.location='index.html'">main menu</button>
+        </div>
+        <audio src="game-bg-music.wav" loop autoplay></audio>
+
+    
+    </body>
+</html>
